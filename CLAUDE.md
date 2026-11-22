@@ -24,6 +24,7 @@ Live at <https://powershelltoday.github.io/effekttoppar-tibber-telge/> (GitHub P
 - **Fetching** (`fetchConsumption`) pages backwards through `consumption(resolution: HOURLY, last: n, before: cursor)` in pages of up to 744 hours, stopping once it reaches the season start (or `rules.from`). After that, fetches are incremental, using `coveredFrom`/`coveredTo`.
 - **Token:** held in memory. It is written to `localStorage["tp.token"]` only after the user clicks "Ja, spara" in the inline consent panel (deliberately localStorage, not a cookie, so it never goes to github.io). Boot auto-starts a session when a saved token exists. The token must only ever be sent to `api.tibber.com`.
 - **Rendering:** `render()` rebuilds every card from `analyzeMonth`. `chart()` emits an inline SVG and uses a smaller viewBox below 600px (`narrowMQ`), re-rendering when that breakpoint changes. Mobile-specific CSS is in the `@media (max-width: 600px)` block.
+  On hover-capable screens wider than 600px (`hoverMQ`), the chart adds invisible `.hit` columns, drops the native `<title>` tooltips, and shows a `#dayPop` popover (`dayPopover()`) listing every hour of the day (`day.hours` from `analyzeMonth`). Touch and phone screens never get it.
 - **PWA bits:** `manifest.webmanifest`, the apple-touch/OG meta tags in `<head>` (the OG URLs are absolute and point at the Pages URL), and `.nojekyll`. There is no service worker.
 
 ## Testing
