@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Effekttoppar - Tibber / Telge Nät</title>
+<meta name="description" content="Se dina effekttoppar och effektavgift från Tibber-data, beräknat enligt Telge Näts regler. Allt körs i webbläsaren.">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12151b" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Effekttoppar">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="sv_SE">
+<meta property="og:title" content="Effekttoppar">
+<meta property="og:description" content="Se dina effekttoppar och effektavgift från Tibber-data (Telge Nät-regler).">
+<meta property="og:url" content="https://powershelltoday.github.io/effekttoppar-tibber-telge/">
+<meta property="og:image" content="https://powershelltoday.github.io/effekttoppar-tibber-telge/icons/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Effekttoppar: stapeldiagram med de högsta effekttopparna markerade">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #d9480f; --accent-soft: #ffe8dc; --ok: #2b8a3e; --bar: #c5cbd6; --bar-off: #eceff3;
+    --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b1f27; --text: #e6e9ef; --muted: #9aa3b2; --line: #2b313c;
+      --accent: #ff7a3d; --accent-soft: #3a2418; --ok: #69db7c; --bar: #4a5263; --bar-off: #242a34;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  a { color: var(--accent); }
+  header {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: calc(12px + env(safe-area-inset-top, 0px)) calc(24px + var(--sr)) 12px calc(24px + var(--sl));
+    border-bottom: 1px solid var(--line); display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap;
+  }
+  header .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  header .brand img { width: 28px; height: 28px; border-radius: 7px; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .sp { flex: 1; }
+  header .actions { display: flex; gap: 10px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px calc(24px + var(--sr)) calc(60px + env(safe-area-inset-bottom, 0px)) calc(24px + var(--sl)); display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  .card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  input, select, button { font: inherit; color: inherit; }
+  input[type=text], input[type=password], input[type=number], input[type=date], select {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-height: 40px;
+  }
+  input[type=number] { width: 100%; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+  button, .btn { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; min-height: 40px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+  button.ghost, .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .kpi { background: var(--bg); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+  .kpi .v { font-size: 26px; font-weight: 650; white-space: nowrap; }
+  .kpi .l { font-size: 13px; color: var(--muted); }
+  .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.top td { background: var(--accent-soft); }
+  ul.insights { margin: 0; padding-left: 18px; }
+  ul.insights li { margin: 4px 0; }
+  #status { font-size: 13px; margin: 10px 0 0; }
+  #status:empty { display: none; }
+  #status.err { color: #e03131; }
+  details summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 18px; }
+  .grid2 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .chk { display: flex; flex-direction: row !important; align-items: center; gap: 8px !important; color: var(--text) !important; cursor: pointer; }
+  .tokenrow { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tokenrow input { flex: 1 1 280px; min-width: 0; }
+  .consent { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 8px; }
+  .consent p { margin: 0 0 10px; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 600px) {
+    body { font-size: 15px; }
+    header { padding-left: calc(14px + var(--sl)); padding-right: calc(14px + var(--sr)); }
+    header .sp { display: none; }
+    header .brand { flex: 1 1 100%; }
+    header .actions { flex: 1 1 100%; }
+    header .actions select { flex: 1; min-width: 0; }
+    main { padding-left: calc(10px + var(--sl)); padding-right: calc(10px + var(--sr)); gap: 12px; padding-top: 12px; }
+    .card { padding: 14px; }
+    .kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kpi { padding: 10px 12px; }
+    .kpi .v { font-size: 20px; }
+    th, td { padding: 6px 5px; }
+    .hide-sm { display: none; }
+    .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .grid2 input:not([type=checkbox]) { width: 100%; min-width: 0; }
+    .grid2 .chk { grid-column: 1 / -1; }
+    /* 16px stops iOS Safari zooming in on focus */
+    input[type=text], input[type=password], input[type=number], input[type=date], select { font-size: 16px; }
+    .tokenrow button { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="icons/icon.svg" alt="">
+    <h1>Effekttoppar</h1>
+    <span class="muted small" id="homeName"></span>
+  </div>
+  <span class="sp"></span>
+  <div class="actions">
+    <select id="monthSel" title="Månad" aria-label="Månad"></select>
+    <button id="btnFetch" disabled>Hämta</button>
+  </div>
+</header>
+
+<main>
+  <!-- Token -->
+  <section class="card" id="tokenCard">
+    <h2>Tibber-token</h2>
+    <div id="tokenNew">
+      <div class="tokenrow">
+        <input type="password" id="tokenIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Personal access token">
+        <button id="btnUseToken">Använd token</button>
+        <button class="ghost" id="btnDemo">Visa demodata</button>
+      </div>
+      <label class="chk small" style="margin-top:10px"><input type="checkbox" id="remember"> Kom ihåg token på den här enheten</label>
+      <div id="consent" class="consent hidden" role="dialog" aria-labelledby="consentTitle">
+        <p><b id="consentTitle">Får vi spara token i webbläsaren?</b><br>
+        Token sparas okrypterad i den här webbläsarens lokala lagring (localStorage) så att du slipper ange den nästa gång.
+        Den skickas bara till api.tibber.com, aldrig till någon annan server. Den som har tillgång till enheten kan läsa den.
+        Du kan när som helst ta bort den med <i>Glöm token</i>.</p>
+        <div class="row">
+          <button id="btnConsentYes">Ja, spara</button>
+          <button class="ghost" id="btnConsentNo">Nej, bara denna gång</button>
+        </div>
+      </div>
+      <p class="muted small" style="margin:10px 0 0">Skapa en token på <a href="https://developer.tibber.com/settings/access-token" target="_blank" rel="noopener">developer.tibber.com</a>.
+      Sidan har ingen server: förbrukningen hämtas direkt från Tibber och sparas bara i din webbläsare.</p>
+    </div>
+    <div id="tokenReady" class="row hidden">
+      <span id="tokenMsg"></span>
+      <select id="homeSel" aria-label="Hem"></select>
+      <button class="ghost" id="btnForget">Glöm token</button>
+    </div>
+    <p id="status" class="muted"></p>
+  </section>
+
+  <!-- Summary -->
+  <section class="card hidden" id="sumCard">
+    <h2 id="sumTitle">Månad</h2>
+    <div class="kpis" id="kpis"></div>
+    <div style="margin-top:14px" id="chartWrap"></div>
+    <ul class="insights" id="insights" style="margin-top:10px"></ul>
+  </section>
+
+  <section class="card hidden" id="topCard">
+    <h2>Månadens högsta toppar (en per dag)</h2>
+    <div class="tablewrap"><table id="topTable"></table></div>
+  </section>
+
+  <section class="card hidden" id="seasonCard">
+    <h2 id="seasonTitle">Säsong</h2>
+    <div class="tablewrap"><table id="seasonTable"></table></div>
+  </section>
+
+  <!-- Settings -->
+  <section class="card">
+    <details>
+      <summary>Regler och inställningar</summary>
+      <div class="grid2" style="margin-top:12px">
+        <label>Effektavgift (kr/kW, månad, inkl. moms)<input type="number" inputmode="decimal" step="0.01" id="rPrice"></label>
+        <label>Antal toppar i snittet<input type="number" inputmode="numeric" min="1" max="10" id="rCount"></label>
+        <label>Höglast från kl<input type="number" inputmode="numeric" min="0" max="23" id="rStart"></label>
+        <label>Höglast till kl (exkl.)<input type="number" inputmode="numeric" min="1" max="24" id="rEnd"></label>
+        <label>Månader (1-12, kommaseparerat)<input type="text" id="rMonths"></label>
+        <label>Hämta historik från<input type="date" id="rFrom"></label>
+        <label class="chk"><input type="checkbox" id="rUnique"> Max en topp per dag</label>
+        <label class="chk"><input type="checkbox" id="rWeekend"> Exkludera helger</label>
+        <label class="chk"><input type="checkbox" id="rHoliday"> Exkludera röda dagar</label>
+        <label class="chk"><input type="checkbox" id="rEves"> Räkna jul-, nyårs-, påsk- och midsommarafton som helgdag</label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="ghost" id="btnResetRules">Återställ Telge Nät-regler</button>
+        <span class="muted small">Standard: snitt av 5 högsta timmar på olika dagar, helgfria vardagar 07-20, nov-mars, 125,13 kr/kW. Kontrollera mot din prislista.</span>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+      <div class="row">
+        <button class="ghost" id="btnLinkFile">Koppla cachefil på disk</button>
+        <button class="ghost" id="btnExport">Exportera cache</button>
+        <label class="btn ghost">Importera<input type="file" id="importIn" accept=".json,application/json" hidden></label>
+        <button class="ghost" id="btnClear">Rensa cache</button>
+        <span class="muted small" id="cacheInfo"></span>
+      </div>
+      <p class="muted small" style="margin:12px 0 0">Källkod: <a href="https://github.com/PowerShellToday/effekttoppar-tibber-telge" target="_blank" rel="noopener">github.com/PowerShellToday/effekttoppar-tibber-telge</a></p>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+// ==ANALYSIS START==
+const TZ = "Europe/Stockholm";
+const DEFAULT_RULES = {
+  price: 125.13, count: 5, start: 7, end: 20, months: [11, 12, 1, 2, 3],
+  uniqueDays: true, excludeWeekends: true, excludeHolidays: true, evesAsHoliday: true, from: null
+};
+
+const _fmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", hourCycle: "h23", weekday: "short"
+});
+const WD = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+
+function localParts(ts) {
+  const p = {};
+  for (const x of _fmt.formatToParts(new Date(ts))) p[x.type] = x.value;
+  return {
+    date: `${p.year}-${p.month}-${p.day}`, y: +p.year, m: +p.month, d: +p.day,
+    hour: +p.hour % 24, wd: WD[p.weekday], month: `${p.year}-${p.month}`
+  };
+}
+
+function easter(y) { // Anonymous Gregorian algorithm
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(y, month - 1, day));
+}
+const _iso = d => d.toISOString().slice(0, 10);
+const _addDays = (d, n) => new Date(d.getTime() + n * 864e5);
+const _holCache = {};
+function swedishHolidays(y, eves) {
+  const key = y + ":" + eves;
+  if (_holCache[key]) return _holCache[key];
+  const s = new Set([`${y}-01-01`, `${y}-01-06`, `${y}-05-01`, `${y}-06-06`, `${y}-12-25`, `${y}-12-26`]);
+  const e = easter(y);
+  [-2, 0, 1, 39].forEach(n => s.add(_iso(_addDays(e, n))));
+  for (let d = 20; d <= 26; d++) { // midsommardagen: lördag 20-26 juni
+    const dt = new Date(Date.UTC(y, 5, d));
+    if (dt.getUTCDay() === 6) { s.add(_iso(dt)); if (eves) s.add(_iso(_addDays(dt, -1))); }
+  }
+  for (let d = 31; d <= 37; d++) { // alla helgons dag: lördag 31 okt - 6 nov
+    const dt = new Date(Date.UTC(y, 9, d));
+    if (dt.getUTCDay() === 6) s.add(_iso(dt));
+  }
+  if (eves) { s.add(`${y}-12-24`); s.add(`${y}-12-31`); s.add(_iso(_addDays(e, -1))); }
+  _holCache[key] = s;
+  return s;
+}
+
+function dayType(p, rules) {
+  if (!rules.months.includes(p.m)) return "season";
+  if (rules.excludeWeekends && p.wd >= 6) return "weekend";
+  if (rules.excludeHolidays && swedishHolidays(p.y, rules.evesAsHoliday).has(p.date)) return "holiday";
+  return "ok";
+}
+function qualifies(p, rules) {
+  return dayType(p, rules) === "ok" && p.hour >= rules.start && p.hour < rules.end;
+}
+
+// hours: { [tsMs]: [kWh, cost] } ; returns analysis for "YYYY-MM"
+function analyzeMonth(hours, monthKey, rules) {
+  const days = {}; // date -> {date, d, type, peak:{ts,hour,kw}, allPeak}
+  const qualHours = [];
+  let totalKwh = 0;
+  for (const k in hours) {
+    const ts = +k, kwh = hours[k][0];
+    if (kwh == null) continue;
+    const p = localParts(ts);
+    if (p.month !== monthKey) continue;
+    totalKwh += kwh;
+    const day = days[p.date] || (days[p.date] = { date: p.date, d: p.d, wd: p.wd, type: dayType(p, rules), peak: null, allPeak: null, n: 0 });
+    day.n++;
+    if (!day.allPeak || kwh > day.allPeak.kw) day.allPeak = { ts, hour: p.hour, kw: kwh };
+    if (qualifies(p, rules)) {
+      const h = { ts, hour: p.hour, kw: kwh, date: p.date };
+      qualHours.push(h);
+      if (!day.peak || kwh > day.peak.kw) day.peak = h;
+    }
+  }
+  const dayList = Object.values(days).sort((a, b) => a.date.localeCompare(b.date));
+  const candidates = rules.uniqueDays
+    ? dayList.filter(d => d.peak).map(d => d.peak)
+    : qualHours.slice();
+  candidates.sort((a, b) => b.kw - a.kw || a.ts - b.ts);
+  const top = candidates.slice(0, rules.count);
+  const avg = top.length ? top.reduce((s, x) => s + x.kw, 0) / top.length : 0;
+  const inSeason = rules.months.includes(+monthKey.slice(5, 7));
+  const threshold = top.length >= rules.count ? top[top.length - 1].kw : 0;
+  const peakHours = {};
+  top.forEach(t => peakHours[t.hour] = (peakHours[t.hour] || 0) + 1);
+  const qualDays = dayList.filter(d => d.peak).map(d => d.peak.kw).sort((a, b) => a - b);
+  const median = qualDays.length ? qualDays[Math.floor((qualDays.length - 1) / 2)] : 0;
+  return {
+    monthKey, inSeason, days: dayList, top, avg, threshold,
+    cost: inSeason ? avg * rules.price : 0,
+    complete: top.length >= rules.count, peakHours, median,
+    qualifyingDays: qualDays.length, totalKwh
+  };
+}
+
+function seasonMonths(monthKey, rules) {
+  // Season = consecutive run of rule months containing monthKey (handles Nov-Mar over year end)
+  const y = +monthKey.slice(0, 4), m = +monthKey.slice(5, 7);
+  const ms = rules.months;
+  if (!ms.includes(m)) return [];
+  let cy = y, cm = m;
+  for (let i = 0; i < 12; i++) { // walk back to season start
+    const pm = cm === 1 ? 12 : cm - 1, py = cm === 1 ? cy - 1 : cy;
+    if (!ms.includes(pm)) break;
+    cy = py; cm = pm;
+  }
+  const out = [];
+  for (let i = 0; i < 12 && ms.includes(cm); i++) {
+    out.push(`${cy}-${String(cm).padStart(2, "0")}`);
+    if (cm === 12) { cm = 1; cy++; } else cm++;
+  }
+  return out;
+}
+// ==ANALYSIS END==
+
+// ---------- Formatting ----------
+const nf1 = new Intl.NumberFormat("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nf0 = new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 0 });
+const kw = v => nf1.format(v) + " kW";
+const kr = v => nf0.format(Math.round(v)) + " kr";
+const MONTHS = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
+const WDN = ["", "mån", "tis", "ons", "tor", "fre", "lör", "sön"];
+const monthName = k => `${MONTHS[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}`;
+const hourSpan = h => `${String(h).padStart(2, "0")}-${String(h + 1).padStart(2, "0")}`;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const narrowMQ = window.matchMedia("(max-width: 600px)");
+
+// ---------- Storage helpers (localStorage can throw in private mode etc.) ----------
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+
+// ---------- State ----------
+let rules = loadRules();
+let token = null;
+let tokenSaved = false;
+let cache = { version: 1, homes: {} };
+let homeId = ls.get("tp.homeId") || null;
+let demo = false;
+let fileHandle = null;
+
+function loadRules() {
+  try { return Object.assign({}, DEFAULT_RULES, JSON.parse(ls.get("tp.rules") || "{}")); }
+  catch { return Object.assign({}, DEFAULT_RULES); }
+}
+function saveRules() { ls.set("tp.rules", JSON.stringify(rules)); }
+function status(msg, err) { const s = $("status"); s.textContent = msg || ""; s.className = err ? "err" : "muted"; }
+
+// ---------- IndexedDB ----------
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("tibberPeaks", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idb();
+  return new Promise((res, rej) => { const t = db.transaction("kv").objectStore("kv").get(key); t.onsuccess = () => res(t.result); t.onerror = () => rej(t.error); });
+}
+async function idbSet(key, val) {
+  const db = await idb();
+  return new Promise((res, rej) => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(val, key); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+async function persist() {
+  if (demo) return;
+  try { await idbSet("cache", cache); } catch (e) { console.warn(e); }
+  if (fileHandle) {
+    try {
+      if ((await fileHandle.queryPermission({ mode: "readwrite" })) === "granted") {
+        const w = await fileHandle.createWritable();
+        await w.write(JSON.stringify(cache)); await w.close();
+      }
+    } catch (e) { console.warn("Kunde inte skriva cachefil", e); }
+  }
+  updateCacheInfo();
+}
+function updateCacheInfo() {
+  const h = cache.homes[homeId];
+  const n = h ? Object.keys(h.hours).length : 0;
+  $("cacheInfo").textContent = `${n} timmar i cache` + (fileHandle ? ` + fil: ${fileHandle.name}` : "");
+}
+
+// ---------- Tibber API ----------
+const API = "https://api.tibber.com/v1-beta/gql";
+async function gql(query, variables) {
+  let r;
+  try {
+    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }, body: JSON.stringify({ query, variables }) });
+  } catch (e) {
+    throw new Error("Kunde inte nå Tibber (nätverksfel). Kontrollera uppkopplingen och försök igen.");
+  }
+  if (r.status === 401) throw new Error("Tibber svarade 401: token är ogiltig eller har återkallats.");
+  if (!r.ok) throw new Error(`Tibber svarade ${r.status}. Försök igen om en stund.`);
+  const j = await r.json();
+  if (j.errors && j.errors.length) throw new Error("Tibber: " + j.errors.map(e => e.message).join("; "));
+  return j.data;
+}
+async function loadHomes() {
+  const d = await gql(`{ viewer { homes { id appNickname address { address1 } } } }`);
+  const homes = d.viewer.homes || [];
+  if (!homes.length) throw new Error("Inga hem hittades på det här Tibber-kontot.");
+  const sel = $("homeSel");
+  sel.innerHTML = homes.map(h => `<option value="${esc(h.id)}">${esc(h.appNickname || (h.address && h.address.address1) || h.id)}</option>`).join("");
+  if (!homes.find(h => h.id === homeId)) homeId = homes[0].id;
+  sel.value = homeId;
+  homes.forEach(h => {
+    const c = cache.homes[h.id] || (cache.homes[h.id] = { hours: {}, coveredFrom: null, coveredTo: null });
+    c.name = h.appNickname || (h.address && h.address.address1) || "Hem";
+  });
+  ls.set("tp.homeId", homeId);
+  sel.classList.toggle("hidden", homes.length < 2);
+}
+
+function defaultFrom() {
+  if (rules.from) return Date.parse(rules.from + "T00:00:00");
+  // start of current season (or current month if not in season)
+  const p = localParts(Date.now());
+  const sm = seasonMonths(p.month, rules);
+  const first = sm.length ? sm[0] : p.month;
+  return Date.parse(first + "-01T00:00:00");
+}
+
+let fetching = false;
+async function fetchConsumption() {
+  if (!token || !homeId || fetching) return;
+  fetching = true;
+  const btn = $("btnFetch"); btn.disabled = true;
+  try {
+    const h = cache.homes[homeId];
+    const fromTs = defaultFrom();
+    const coversStart = h.coveredFrom != null && h.coveredFrom <= fromTs;
+    const target = coversStart && h.coveredTo ? h.coveredTo : fromTs;
+    let before = null, pages = 0, oldest = Infinity, newest = -Infinity, added = 0, reachedStart = false;
+    const q = `query($id:ID!,$n:Int!,$before:String){ viewer { home(id:$id) {
+        consumption(resolution: HOURLY, last: $n, before: $before) {
+          pageInfo { startCursor hasPreviousPage }
+          nodes { from consumption cost } } } } }`;
+    while (pages < 20) {
+      const n = pages === 0 && coversStart ? Math.min(744, Math.ceil((Date.now() - target) / 36e5) + 3) : 744;
+      status(`Hämtar sida ${pages + 1}...`);
+      const d = await gql(q, { id: homeId, n, before });
+      const c = d.viewer.home.consumption;
+      if (!c || !c.nodes) break;
+      for (const node of c.nodes) {
+        const ts = Date.parse(node.from);
+        if (node.consumption == null) continue;
+        if (!(ts in h.hours)) added++;
+        h.hours[ts] = [node.consumption, node.cost];
+        oldest = Math.min(oldest, ts); newest = Math.max(newest, ts);
+      }
+      pages++;
+      const pageOldest = c.nodes.length ? Date.parse(c.nodes[0].from) : -Infinity;
+      if (pageOldest <= target) { reachedStart = true; break; }
+      if (!c.pageInfo.hasPreviousPage || !c.pageInfo.startCursor) { reachedStart = true; break; } // no older data exists
+      before = c.pageInfo.startCursor;
+    }
+    if (isFinite(oldest)) {
+      // Cache is contiguous from coveredFrom to coveredTo only if we paged all the way back to target
+      if (!coversStart && reachedStart) h.coveredFrom = Math.min(oldest, fromTs);
+      h.coveredTo = Math.max(newest, h.coveredTo || 0);
+    }
+    await persist();
+    const last = h.coveredTo ? new Date(h.coveredTo).toLocaleString("sv-SE", { timeZone: TZ, dateStyle: "short", timeStyle: "short" }) : "-";
+    status(`Klart. ${added} nya timmar. Senaste timme med data: ${last}.`);
+    refreshMonths(); render();
+  } catch (e) {
+    status(e.message, true);
+  } finally { fetching = false; btn.disabled = !token; }
+}
+
+// ---------- UI: token ----------
+function showTokenState() {
+  $("tokenNew").classList.toggle("hidden", !!token);
+  $("tokenReady").classList.toggle("hidden", !token);
+  $("tokenMsg").textContent = tokenSaved ? "Token sparad på den här enheten." : "Token aktiv för den här sessionen.";
+  $("btnFetch").disabled = !token;
+  if (!token) $("consent").classList.add("hidden");
+}
+async function useToken(t, save) {
+  if (save) {
+    if (!ls.set("tp.token", t)) status("Kunde inte spara token (lagring blockerad). Den används bara denna gång.", true);
+    else tokenSaved = true;
+  }
+  token = t; demo = false; $("tokenIn").value = ""; $("remember").checked = false;
+  $("consent").classList.add("hidden");
+  await startSession();
+}
+$("btnUseToken").onclick = () => {
+  const t = $("tokenIn").value.trim();
+  if (!t) { status("Ange en token.", true); $("tokenIn").focus(); return; }
+  if ($("remember").checked) { $("consent").classList.remove("hidden"); $("btnConsentYes").focus(); return; }
+  useToken(t, false);
+};
+$("tokenIn").addEventListener("keydown", e => { if (e.key === "Enter") $("btnUseToken").click(); });
+$("btnConsentYes").onclick = () => useToken($("tokenIn").value.trim(), true);
+$("btnConsentNo").onclick = () => useToken($("tokenIn").value.trim(), false);
+$("remember").onchange = () => { if (!$("remember").checked) $("consent").classList.add("hidden"); };
+$("btnForget").onclick = () => {
+  ls.del("tp.token"); token = null; tokenSaved = false;
+  showTokenState(); status("Token borttagen från enheten. Cachad förbrukning finns kvar.");
+};
+$("homeSel").onchange = () => {
+  homeId = $("homeSel").value; ls.set("tp.homeId", homeId);
+  $("homeName").textContent = cache.homes[homeId] ? cache.homes[homeId].name : "";
+  refreshMonths(); render(); fetchConsumption();
+};
+
+async function startSession() {
+  showTokenState();
+  try {
+    status("Hämtar hem...");
+    await loadHomes();
+    $("homeName").textContent = cache.homes[homeId] ? cache.homes[homeId].name : "";
+    refreshMonths(); render();
+    await fetchConsumption();
+  } catch (e) { status(e.message, true); }
+}
+$("btnFetch").onclick = fetchConsumption;
+
+// ---------- Demo data ----------
+$("btnDemo").onclick = () => {
+  demo = true;
+  homeId = "demo";
+  const hours = {};
+  const now = Date.now(), start = now - 120 * 864e5;
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let t = Math.floor(start / 36e5) * 36e5; t < now - 36e5 * 10; t += 36e5) {
+    const p = localParts(t);
+    const winter = [11, 12, 1, 2, 3].includes(p.m) ? 1.4 : 0.8;
+    let base = 0.9 + 0.6 * Math.sin((p.hour - 4) / 24 * Math.PI * 2) ** 2;
+    if (p.hour >= 17 && p.hour <= 19) base += 1.5 * rnd();
+    if (p.hour >= 6 && p.hour <= 8) base += 1.0 * rnd();
+    if (rnd() > 0.985) base += 3 + 3 * rnd(); // EV / sauna
+    hours[t] = [+(base * winter + 0.3 * rnd()).toFixed(3), null];
+  }
+  cache = { version: 1, homes: { demo: { name: "Demohem", hours, coveredFrom: start, coveredTo: now } } };
+  $("homeName").textContent = "Demodata";
+  status("Visar slumpad demodata (sparas inte). Ladda om sidan för att lämna demoläget.");
+  refreshMonths(); render();
+};
+
+// ---------- UI: months & render ----------
+function refreshMonths() {
+  const h = cache.homes[homeId];
+  const set = new Set();
+  if (h) for (const k in h.hours) set.add(localParts(+k).month);
+  set.add(localParts(Date.now()).month);
+  const list = [...set].sort().reverse();
+  const sel = $("monthSel"), prev = sel.value;
+  sel.innerHTML = list.map(m => `<option value="${m}">${monthName(m)}${rules.months.includes(+m.slice(5)) ? "" : " (ingen avgift)"}</option>`).join("");
+  sel.value = list.includes(prev) ? prev : list[0];
+  updateCacheInfo();
+}
+$("monthSel").onchange = render;
+
+function render() {
+  const h = cache.homes[homeId];
+  const show = !!(h && Object.keys(h.hours).length);
+  ["sumCard", "topCard", "seasonCard"].forEach(id => $(id).classList.toggle("hidden", !show));
+  if (!show) return;
+  const mk = $("monthSel").value;
+  const a = analyzeMonth(h.hours, mk, rules);
+  const isCurrent = mk === localParts(Date.now()).month;
+
+  $("sumTitle").textContent = monthName(mk) + (isCurrent ? " (hittills)" : "");
+  const n = rules.count;
+  $("kpis").innerHTML = [
+    [a.top.length ? kw(a.avg) : "-", `Snitt av ${a.top.length < n ? a.top.length + " (av " + n + ")" : n} högsta`],
+    [a.inSeason ? kr(a.cost) : "0 kr", a.inSeason ? (a.complete ? "Effektavgift" : "Effektavgift, preliminär") : "Ingen effektavgift denna månad"],
+    [a.top.length ? kw(a.top[0].kw) : "-", "Högsta enskilda topp"],
+    [a.complete ? kw(a.threshold) : "-", `Tröskel (topp ${n})`],
+  ].map(([v, l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+  $("chartWrap").innerHTML = chart(a, mk);
+
+  // insights
+  const ins = [];
+  if (!a.inSeason) ins.push(`Månaden ligger utanför höglastsäsongen, så topparna påverkar inte avgiften. Siffrorna visar ändå vad de hade blivit.`);
+  if (a.qualifyingDays === 0) ins.push(`Inga timmar i höglasttid med data ännu.`);
+  else if (!a.complete) ins.push(`Bara ${a.qualifyingDays} höglastdag${a.qualifyingDays > 1 ? "ar" : ""} med data hittills. Snittet räknas på det som finns och kommer att ändras.`);
+  if (a.complete) {
+    ins.push(`Nya timmar under <b>${kw(a.threshold)}</b> påverkar inte avgiften. En dag över tröskeln ersätter den lägsta toppen.`);
+    ins.push(`Varje kW du höjer en av topp ${n} kostar ${kr(rules.price / n)} denna månad.`);
+  }
+  const ph = Object.entries(a.peakHours).sort((x, y) => y[1] - x[1]);
+  if (ph.length && a.top.length >= 2) {
+    const [hh, cnt] = ph[0];
+    if (cnt >= 2) ins.push(`${cnt} av ${a.top.length} toppar inträffade kl ${hourSpan(+hh)}.`);
+  }
+  if (a.complete && a.inSeason && a.median > 0 && a.avg > a.median) {
+    ins.push(`Om topparna hade legat på din mediandag (${kw(a.median)}) hade avgiften varit ${kr(a.median * rules.price)}, alltså ${kr((a.avg - a.median) * rules.price)} lägre.`);
+  }
+  const outside = a.days.filter(d => d.allPeak && (!d.peak || d.allPeak.kw > d.peak.kw * 1.2) && d.allPeak.kw > (a.threshold || 0));
+  if (a.inSeason && outside.length) ins.push(`${outside.length} dag${outside.length > 1 ? "ar" : ""} hade högre effekt utanför höglasttid (räknas inte), t.ex. ${outside[0].date} kl ${hourSpan(outside[0].allPeak.hour)}: ${kw(outside[0].allPeak.kw)}.`);
+  const prevK = (() => { const y = +mk.slice(0, 4), m = +mk.slice(5); const pm = m === 1 ? 12 : m - 1, py = m === 1 ? y - 1 : y; return `${py}-${String(pm).padStart(2, "0")}`; })();
+  const pa = analyzeMonth(h.hours, prevK, rules);
+  if (pa.complete && a.top.length && rules.months.includes(+prevK.slice(5))) {
+    const diff = a.avg - pa.avg;
+    ins.push(`Jämfört med ${monthName(prevK)} (${kw(pa.avg)}): ${diff >= 0 ? "+" : ""}${nf1.format(diff)} kW.`);
+  }
+  ins.push(`Total förbrukning: ${nf0.format(a.totalKwh)} kWh.`);
+  $("insights").innerHTML = ins.map(s => `<li>${s}</li>`).join("");
+
+  // top table: all qualifying day peaks sorted, top N highlighted
+  const rows = a.days.filter(d => d.peak).map(d => d.peak).sort((x, y) => y.kw - x.kw).slice(0, Math.max(10, n));
+  const topSet = new Set(a.top.map(t => t.ts));
+  $("topTable").innerHTML = `<tr><th>#</th><th>Datum</th><th>Timme</th><th class="num">Effekt</th><th class="num">Andel<span class="hide-sm"> av avgift</span></th></tr>` +
+    rows.map((r, i) => {
+      const p = localParts(r.ts), isTop = topSet.has(r.ts);
+      const date = narrowMQ.matches ? `${WDN[p.wd]} ${p.d}/${p.m}` : `${WDN[p.wd]} ${r.date}`;
+      return `<tr class="${isTop ? "top" : ""}"><td>${i + 1}</td><td>${date}</td><td>${hourSpan(r.hour)}</td><td class="num">${kw(r.kw)}</td><td class="num">${isTop && a.inSeason ? kr(r.kw / n * rules.price) : ""}</td></tr>`;
+    }).join("") || `<tr><td colspan="5" class="muted">Ingen data</td></tr>`;
+
+  // season
+  const sm = seasonMonths(mk, rules);
+  $("seasonCard").classList.toggle("hidden", !sm.length);
+  if (sm.length) {
+    $("seasonTitle").textContent = `Säsong ${sm[0].slice(0, 4)}/${sm[sm.length - 1].slice(2, 4)}`;
+    let total = 0;
+    const body = sm.map(m => {
+      const s = analyzeMonth(h.hours, m, rules);
+      total += s.cost;
+      const st = s.top.length === 0 ? "Ingen data" : s.complete ? (m === localParts(Date.now()).month ? "Pågår" : "Klar") : "Pågår";
+      return `<tr><td>${monthName(m)}</td><td class="num">${s.top.length ? kw(s.avg) : "-"}</td><td class="num hide-sm">${s.top.length ? kw(s.top[0].kw) : "-"}</td><td class="num">${s.top.length ? kr(s.cost) : "-"}</td><td>${st}</td></tr>`;
+    }).join("");
+    $("seasonTable").innerHTML = `<tr><th>Månad</th><th class="num">Snitt</th><th class="num hide-sm">Högsta</th><th class="num">Avgift</th><th>Status</th></tr>${body}<tr><td><b>Totalt hittills</b></td><td></td><td class="hide-sm"></td><td class="num"><b>${kr(total)}</b></td><td></td></tr>`;
+  }
+}
+
+function chart(a, mk) {
+  const narrow = narrowMQ.matches;
+  const y = +mk.slice(0, 4), m = +mk.slice(5);
+  const nDays = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const byD = {}; a.days.forEach(d => byD[d.d] = d);
+  const maxV = Math.max(1, ...a.days.map(d => Math.max(d.peak ? d.peak.kw : 0, d.allPeak ? d.allPeak.kw : 0))) * 1.12;
+  // Narrow screens get a smaller viewBox so text stays readable when scaled down
+  const W = narrow ? 400 : 1000, H = narrow ? 200 : 220, L = narrow ? 24 : 36, B = 22, T = 8, bw = (W - L) / nDays;
+  const yv = v => T + (H - T - B) * (1 - v / maxV);
+  const topSet = new Set(a.top.map(t => t.date));
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Dagliga toppar" style="display:block">`;
+  const step = maxV > 16 ? 4 : maxV > 8 ? 2 : 1;
+  for (let v = 0; v < maxV; v += step) s += `<line x1="${L}" x2="${W}" y1="${yv(v)}" y2="${yv(v)}" stroke="var(--line)"/><text x="${L - 5}" y="${yv(v) + 4}" text-anchor="end">${v}</text>`;
+  for (let d = 1; d <= nDays; d++) {
+    const x = L + (d - 1) * bw + bw * 0.15, w = bw * 0.7, day = byD[d];
+    if (day && day.allPeak) { // ghost bar = whole-day peak
+      s += `<rect x="${x}" y="${yv(day.allPeak.kw)}" width="${w}" height="${yv(0) - yv(day.allPeak.kw)}" fill="var(--bar-off)" rx="2"><title>${day.date}: dygnets högsta ${kw(day.allPeak.kw)} kl ${hourSpan(day.allPeak.hour)}</title></rect>`;
+    }
+    if (day && day.peak) {
+      const isTop = topSet.has(day.date);
+      s += `<rect x="${x}" y="${yv(day.peak.kw)}" width="${w}" height="${yv(0) - yv(day.peak.kw)}" fill="${isTop ? "var(--accent)" : "var(--bar)"}" rx="2"><title>${day.date} kl ${hourSpan(day.peak.hour)}: ${kw(day.peak.kw)}${isTop ? " (räknas)" : ""}</title></rect>`;
+    }
+    if (narrow && d !== 1 && d % 5 !== 0) continue;
+    const wd = day ? day.wd : new Date(Date.UTC(y, m - 1, d)).getUTCDay() || 7;
+    s += `<text x="${x + w / 2}" y="${H - 6}" text-anchor="middle" ${wd >= 6 || (day && day.type === "holiday") ? 'opacity=".45"' : ""}>${d}</text>`;
+  }
+  if (a.complete) s += `<line x1="${L}" x2="${W}" y1="${yv(a.threshold)}" y2="${yv(a.threshold)}" stroke="var(--accent)" stroke-dasharray="5 4"/>`;
+  if (a.top.length) s += `<line x1="${L}" x2="${W}" y1="${yv(a.avg)}" y2="${yv(a.avg)}" stroke="var(--ok)" stroke-dasharray="2 3"/>`;
+  s += `</svg><div class="muted small">Stapel: dagens högsta timme i höglasttid (orange = räknas). Ljusgrå: dygnets högsta inklusive övrig tid. Streckad orange: tröskel. Prickad grön: snitt.</div>`;
+  return s;
+}
+narrowMQ.addEventListener("change", render);
+
+// ---------- Settings UI ----------
+function rulesToForm() {
+  $("rPrice").value = rules.price; $("rCount").value = rules.count; $("rStart").value = rules.start; $("rEnd").value = rules.end;
+  $("rMonths").value = rules.months.join(","); $("rFrom").value = rules.from || "";
+  $("rUnique").checked = rules.uniqueDays; $("rWeekend").checked = rules.excludeWeekends;
+  $("rHoliday").checked = rules.excludeHolidays; $("rEves").checked = rules.evesAsHoliday;
+}
+function formToRules() {
+  rules = {
+    price: +$("rPrice").value || 0, count: Math.max(1, +$("rCount").value || 1),
+    start: +$("rStart").value, end: +$("rEnd").value,
+    months: $("rMonths").value.split(/[ ,;]+/).map(Number).filter(n => n >= 1 && n <= 12),
+    from: $("rFrom").value || null,
+    uniqueDays: $("rUnique").checked, excludeWeekends: $("rWeekend").checked,
+    excludeHolidays: $("rHoliday").checked, evesAsHoliday: $("rEves").checked
+  };
+  saveRules(); refreshMonths(); render();
+}
+["rPrice", "rCount", "rStart", "rEnd", "rMonths", "rFrom", "rUnique", "rWeekend", "rHoliday", "rEves"].forEach(id => $(id).addEventListener("change", formToRules));
+$("btnResetRules").onclick = () => { rules = Object.assign({}, DEFAULT_RULES); saveRules(); rulesToForm(); refreshMonths(); render(); };
+
+// ---------- Cache file / export ----------
+if (!window.showSaveFilePicker) $("btnLinkFile").classList.add("hidden");
+$("btnLinkFile").onclick = async () => {
+  try {
+    fileHandle = await showSaveFilePicker({ suggestedName: "tibber-cache.json", types: [{ description: "JSON", accept: { "application/json": [".json"] } }] });
+    await idbSet("fileHandle", fileHandle);
+    await persist();
+    status("Cache skrivs nu även till " + fileHandle.name + ".");
+  } catch (e) { if (e.name !== "AbortError") status("Kunde inte koppla fil: " + e.message, true); }
+};
+$("btnExport").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(cache)], { type: "application/json" }));
+  a.download = "tibber-cache.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+};
+$("importIn").onchange = async e => {
+  try {
+    const data = JSON.parse(await e.target.files[0].text());
+    if (!data.homes) throw new Error("Okänt format");
+    for (const id in data.homes) {
+      const src = data.homes[id], dst = cache.homes[id] || (cache.homes[id] = { hours: {}, coveredFrom: null, coveredTo: null, name: src.name });
+      Object.assign(dst.hours, src.hours);
+      dst.coveredFrom = Math.min(dst.coveredFrom ?? Infinity, src.coveredFrom ?? Infinity);
+      dst.coveredTo = Math.max(dst.coveredTo ?? 0, src.coveredTo ?? 0);
+      if (!homeId) homeId = id;
+    }
+    demo = false; await persist(); refreshMonths(); render(); status("Importerat.");
+  } catch (err) { status("Import misslyckades: " + err.message, true); }
+  e.target.value = "";
+};
+$("btnClear").onclick = async () => {
+  if (!confirm("Rensa all cachad förbrukning?")) return;
+  cache = { version: 1, homes: {} }; await persist(); refreshMonths(); render(); status("Cache rensad.");
+};
+
+// ---------- Boot ----------
+(async function boot() {
+  rulesToForm();
+  ls.del("tp.tokenEnc"); // legacy encrypted token from older version
+  try {
+    const c = await idbGet("cache"); if (c && c.homes) cache = c;
+    const fh = await idbGet("fileHandle");
+    if (fh && fh.queryPermission) {
+      fileHandle = fh;
+      if ((await fh.queryPermission({ mode: "readwrite" })) === "granted") {
+        const fdata = JSON.parse(await (await fh.getFile()).text());
+        if (fdata && fdata.homes) for (const id in fdata.homes) {
+          const dst = cache.homes[id] || (cache.homes[id] = { hours: {}, coveredFrom: null, coveredTo: null });
+          Object.assign(dst.hours, fdata.homes[id].hours);
+          dst.name = dst.name || fdata.homes[id].name;
+        }
+      } else {
+        $("btnLinkFile").textContent = "Återanslut cachefil (" + fh.name + ")";
+        $("btnLinkFile").onclick = async () => {
+          if ((await fh.requestPermission({ mode: "readwrite" })) === "granted") { location.reload(); }
+        };
+      }
+    }
+  } catch (e) { console.warn("Cache kunde inte läsas", e); }
+  if (!homeId || !cache.homes[homeId]) homeId = Object.keys(cache.homes)[0] || null;
+  if (homeId && cache.homes[homeId]) $("homeName").textContent = cache.homes[homeId].name || "";
+  const saved = ls.get("tp.token");
+  if (saved) { token = saved; tokenSaved = true; }
+  showTokenState(); refreshMonths(); render();
+  if (token) startSession();
+})();
+</script>
+</body>
+</html>

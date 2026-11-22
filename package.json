@@ -1,0 +1,13 @@
+{
+  "name": "effekttoppar-tibber-telge",
+  "private": true,
+  "description": "Build tooling only. The site itself is static (index.html).",
+  "type": "module",
+  "scripts": {
+    "icons": "node tools/build-icons.mjs",
+    "serve": "npx -y http-server -p 8080 -c-1 ."
+  },
+  "devDependencies": {
+    "sharp": "^0.33.5"
+  }
+}
